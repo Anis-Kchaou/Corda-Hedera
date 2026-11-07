@@ -1,0 +1,29 @@
+# Secrets
+.env
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Données générées (ne JAMAIS commiter de données, même fictives volumineuses)
+data/storage/*
+data/samples/*
+data/*.db
+!data/storage/.gitkeep
+!data/samples/.gitkeep
+
+# Kotlin / Gradle / Corda
+.gradle/
+build/
+*.class
+corda/**/build/
+corda/build/nodes/
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store

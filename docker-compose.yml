@@ -1,0 +1,20 @@
+services:
+  middleware:
+    build: ./middleware
+    env_file: .env
+    environment:
+      STORAGE_DIR: /data/storage
+      SYNC_DB_PATH: /data/sync.db
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+
+  # PostgreSQL : à activer quand on migrera la table de synchronisation (SQLite pour l'instant).
+  # postgres:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_USER: medproof
+  #     POSTGRES_PASSWORD: medproof
+  #     POSTGRES_DB: medproof
+  #   ports: ["5432:5432"]

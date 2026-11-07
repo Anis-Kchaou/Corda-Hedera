@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preuve d'intégrité Corda / Hedera</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  textarea { width: 100%; height: 140px; font-family: monospace; }
+  button { margin: .25rem .25rem .25rem 0; padding: .4rem .8rem; cursor: pointer; }
+  table { border-collapse: collapse; width: 100%; margin-top: .5rem; font-size: .85rem; }
+  th, td { border: 1px solid #ccc; padding: .3rem .5rem; text-align: left; word-break: break-all; }
+  .status { display: inline-block; padding: .2rem .6rem; border-radius: 4px; color: #fff; font-weight: 600; }
+  .VALID { background: #2e7d32; } .MODIFIED { background: #ef6c00; }
+  .INCONSISTENT { background: #c62828; } .MISSING { background: #616161; }
+  small { color: #666; }
+</style>
+</head>
+<body>
+<h1>Preuve d'intégrité Corda / Hedera</h1>
+<small>Prototype pédagogique : données fictives uniquement.</small>
+
+<h2>1. Créer un cas</h2>
+<textarea id="record">{"nom": "Test", "prenom": "Fictif", "diagnostic": "grippe", "analyses": [1, 2, 3]}</textarea><br>
+<button onclick="createCase()">Créer le cas</button>
+<p>Case ID : <b id="caseId">—</b></p>
+
+<h2>2. Historique et vérification</h2>
+<button onclick="runPipeline().then(refresh)">Forcer la synchro</button>
+<button onclick="refresh()">Historique</button>
+<button onclick="verify()">Vérifier</button>
+<div id="verdict"></div>
+<table id="history"></table>
+
+<h2>3. Démo des scénarios (mode mock)</h2>
+<button onclick="post('/demo/tamper-file/'+id())">Modifier le fichier</button>
+<button onclick="post('/demo/tamper-proof/'+id())">Falsifier la preuve Hedera</button>
+<button onclick="post('/demo/hedera-outage?available=false')">Couper Hedera</button>
+<button onclick="post('/demo/hedera-outage?available=true')">Rétablir Hedera</button>
+
+<script>
+const API = "http://localhost:8000";
+const id = () => document.getElementById("caseId").textContent;
+async function post(path) { const r = await fetch(API + path, { method: "POST" }); return r.json(); }
+async function runPipeline() { return post("/pipeline/run"); }
+
+async function createCase() {
+  const record = JSON.parse(document.getElementById("record").value);
+  const r = await fetch(API + "/cases", { method: "POST", headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ record }) });
+  const data = await r.json();
+  document.getElementById("caseId").textContent = data.case_id;
+  await runPipeline(); refresh();
+}
+async function refresh() {
+  const rows = await (await fetch(API + "/cases/" + id() + "/history")).json();
+  const t = document.getElementById("history");
+  t.innerHTML = "<tr><th>Tx Corda</th><th>Preuve</th><th>Séquence Hedera</th><th>Statut</th><th>Date</th></tr>" +
+    rows.map(r => `<tr><td>${r.corda_tx_id}</td><td>${r.proof_id ?? ""}</td><td>${r.hedera_sequence ?? ""}</td><td>${r.status}</td><td>${r.created_at}</td></tr>`).join("");
+}
+async function verify() {
+  const v = await post("/cases/" + id() + "/verify");
+  document.getElementById("verdict").innerHTML =
+    `<p><span class="status ${v.status}">${v.status}</span></p>
+     <table><tr><th>Corda</th><td>${v.corda_hash}</td></tr>
+     <tr><th>Hedera</th><td>${v.hedera_hash}</td></tr>
+     <tr><th>Recalculé</th><td>${v.recomputed_hash}</td></tr></table>`;
+}
+</script>
+</body>
+</html>
