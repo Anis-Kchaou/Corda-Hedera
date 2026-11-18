@@ -23,10 +23,13 @@ settings = Settings()
 
 store = OffChainStore(settings.storage_dir)
 sync = SyncManager(settings.sync_db_path)
-if settings.use_mocks:
-    corda, hedera = MockCordaClient(), MockHederaClient()
+if settings.use_mock_corda:
+    corda = MockCordaClient()
 else:
     corda = CordaBridgeClient(settings.corda_bridge_url)
+if settings.use_mock_hedera:
+    hedera = MockHederaClient()
+else:
     hedera = HederaClientImpl(settings.hedera_topic_id, settings.hedera_account_id,
                               settings.hedera_private_key, settings.mirror_node_url)
 pipeline = Pipeline(corda, hedera, sync)
@@ -59,8 +62,8 @@ class CreateCaseRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mocks": settings.use_mocks}
-
+    return {"status": "ok", "mocks": settings.use_mocks,
+            "corda_mock": settings.use_mock_corda, "hedera_mock": settings.use_mock_hedera}
 
 @app.post("/cases")
 def create_case(req: CreateCaseRequest):
