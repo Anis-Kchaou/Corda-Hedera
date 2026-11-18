@@ -10,6 +10,8 @@ def _bool(name: str, default: bool) -> bool:
 @dataclass(frozen=True)
 class Settings:
     use_mocks: bool = _bool("USE_MOCKS", True)
+    use_mock_corda: bool = _bool("USE_MOCK_CORDA", _bool("USE_MOCKS", True))
+    use_mock_hedera: bool = _bool("USE_MOCK_HEDERA", _bool("USE_MOCKS", True))
     storage_dir: str = os.getenv("STORAGE_DIR", "./data/storage")
     sync_db_path: str = os.getenv("SYNC_DB_PATH", "./data/sync.db")
     poll_interval_s: float = float(os.getenv("POLL_INTERVAL_S", "2"))
