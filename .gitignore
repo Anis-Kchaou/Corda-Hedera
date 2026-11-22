@@ -9,6 +9,8 @@ __pycache__/
 .pytest_cache/
 
 # Données générées (ne JAMAIS commiter de données, même fictives volumineuses)
+**/data/storage/
+**/data/*.db
 data/storage/*
 data/samples/*
 data/*.db

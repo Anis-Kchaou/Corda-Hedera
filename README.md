@@ -38,8 +38,9 @@ Avec Docker : `docker compose up --build`.
 
 ## Passer en mode réel
 
-Mettre `USE_MOCKS=false` dans `.env` et compléter les `TODO` :
-`middleware/app/clients/hedera_client.py` (publication SDK) et `corda_client.py` (pont REST).
+Mettre `USE_MOCKS=false` dans `.env` pour utiliser Corda réel et Hedera réel.
+Compléter `CORDA_BRIDGE_URL`, `HEDERA_ACCOUNT_ID`, `HEDERA_PRIVATE_KEY`,
+`HEDERA_TOPIC_ID` et `MIRROR_NODE_URL`.
 
 ## Travailler en équipe
 

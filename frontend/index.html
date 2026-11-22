@@ -33,14 +33,14 @@
 <table id="history"></table>
 
 <h2>3. Démo des scénarios (mode mock)</h2>
-<button onclick="post('/demo/tamper-file/'+id())">Modifier le fichier</button>
-<button onclick="post('/demo/tamper-proof/'+id())">Falsifier la preuve Hedera</button>
+<button onclick="post('/demo/tamper-file/'+getCaseId())">Modifier le fichier</button>
+<button onclick="post('/demo/tamper-proof/'+getCaseId())">Falsifier la preuve Hedera</button>
 <button onclick="post('/demo/hedera-outage?available=false')">Couper Hedera</button>
 <button onclick="post('/demo/hedera-outage?available=true')">Rétablir Hedera</button>
 
 <script>
 const API = "http://localhost:8000";
-const id = () => document.getElementById("caseId").textContent;
+const getCaseId = () => document.getElementById("caseId").textContent;
 async function post(path) { const r = await fetch(API + path, { method: "POST" }); return r.json(); }
 async function runPipeline() { return post("/pipeline/run"); }
 
@@ -53,13 +53,13 @@ async function createCase() {
   await runPipeline(); refresh();
 }
 async function refresh() {
-  const rows = await (await fetch(API + "/cases/" + id() + "/history")).json();
+  const rows = await (await fetch(API + "/cases/" + getCaseId() + "/history")).json();
   const t = document.getElementById("history");
   t.innerHTML = "<tr><th>Tx Corda</th><th>Preuve</th><th>Séquence Hedera</th><th>Statut</th><th>Date</th></tr>" +
     rows.map(r => `<tr><td>${r.corda_tx_id}</td><td>${r.proof_id ?? ""}</td><td>${r.hedera_sequence ?? ""}</td><td>${r.status}</td><td>${r.created_at}</td></tr>`).join("");
 }
 async function verify() {
-  const v = await post("/cases/" + id() + "/verify");
+  const v = await post("/cases/" + getCaseId() + "/verify");
   document.getElementById("verdict").innerHTML =
     `<p><span class="status ${v.status}">${v.status}</span></p>
      <table><tr><th>Corda</th><td>${v.corda_hash}</td></tr>

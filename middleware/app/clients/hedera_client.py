@@ -1,14 +1,18 @@
-"""Client Hedera réel (Testnet).
-
-- get_message : implémenté via l'API REST du Mirror Node (stdlib, sans SDK).
-- publish     : À FAIRE — brancher le SDK Hedera (soumission d'un TopicMessageSubmitTransaction
-                sur HEDERA_TOPIC_ID avec HEDERA_ACCOUNT_ID / HEDERA_PRIVATE_KEY).
-"""
+"""Client Hedera réel (Testnet) utilisant le SDK Hiero Python."""
 import base64
 import json
 import urllib.error
 import urllib.request
 from typing import Optional
+
+from hiero_sdk_python import (
+    AccountId,
+    Client,
+    Network,
+    PrivateKey,
+    TopicId,
+    TopicMessageSubmitTransaction,
+)
 
 
 class HederaClientImpl:
@@ -17,11 +21,41 @@ class HederaClientImpl:
         self.account_id = account_id
         self.private_key = private_key
         self.mirror = mirror_node_url.rstrip("/")
+        self._client: Optional[Client] = None
+
+    def _create_client(self) -> Client:
+        if not self.topic_id:
+            raise RuntimeError("HEDERA_TOPIC_ID est requis")
+        if not self.account_id:
+            raise RuntimeError("HEDERA_ACCOUNT_ID est requis")
+        if not self.private_key:
+            raise RuntimeError("HEDERA_PRIVATE_KEY est requis")
+
+        network = Network("testnet")
+        client = Client(network)
+        operator_id = AccountId.from_string(self.account_id)
+        operator_key = PrivateKey.from_string(self.private_key)
+        client.set_operator(operator_id, operator_key)
+        return client
 
     def publish(self, message_json: str) -> int:
-        # TODO(Hedera): utiliser le SDK pour publier message_json sur le topic HCS
-        # et retourner le sequenceNumber du reçu. Lever une exception en cas d'échec réseau.
-        raise NotImplementedError("Brancher le Hedera SDK ici")
+        client = self._create_client()
+        topic_id = TopicId.from_string(self.topic_id)
+
+        operator_key = PrivateKey.from_string(self.private_key)
+        transaction = (
+            TopicMessageSubmitTransaction(
+                topic_id=topic_id,
+                message=message_json.encode("utf-8"),
+            )
+            .freeze_with(client)
+            .sign(operator_key)
+        )
+        receipt = transaction.execute(client)
+        sequence = getattr(receipt, "topic_sequence_number", None)
+        if sequence is None:
+            raise RuntimeError("Hedera n'a pas renvoyé de topic_sequence_number")
+        return int(sequence)
 
     def get_message(self, sequence: int) -> Optional[dict]:
         url = f"{self.mirror}/api/v1/topics/{self.topic_id}/messages/{sequence}"
