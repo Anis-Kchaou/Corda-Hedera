@@ -33,3 +33,8 @@ def sha256_hex(data: bytes) -> str:
 def hash_record(record: dict[str, Any]) -> str:
     """H = SHA-256(canonique(D))"""
     return sha256_hex(canonicalize(record))
+
+
+def hash_pdf(data: bytes) -> str:
+    """H = SHA-256 du contenu binaire du PDF."""
+    return sha256_hex(data)

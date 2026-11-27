@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -62,8 +62,46 @@ class CreateCaseRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "mocks": settings.use_mocks,
-            "corda_mock": settings.use_mock_corda, "hedera_mock": settings.use_mock_hedera}
+    return {
+        "status": "ok",
+        "mocks": settings.use_mocks,
+        "corda": {
+            "configured": not settings.use_mock_corda,
+            "mode": "mock" if settings.use_mock_corda else "bridge",
+            "bridge_url": settings.corda_bridge_url if not settings.use_mock_corda else None,
+        },
+        "hedera": {
+            "configured": bool(settings.hedera_topic_id and settings.hedera_account_id
+                               and settings.hedera_private_key),
+            "mode": "mock" if settings.use_mock_hedera else "testnet",
+            "topic_id": settings.hedera_topic_id if not settings.use_mock_hedera else None,
+        },
+        "storage": {
+            "configured": bool(settings.storage_dir),
+            "directory": settings.storage_dir,
+        },
+    }
+
+
+@app.get("/dashboard/statistics")
+def dashboard_statistics():
+    documents = sync.documents()
+    history = sync.verification_history()
+    verification_statuses = {
+        status: sum(1 for item in history if item["status"] == status)
+        for status in ("VALID", "MODIFIED", "INCONSISTENT", "PENDING", "MISSING")
+    }
+    return {
+        "total_documents": len(documents),
+        "verification_statuses": verification_statuses,
+        "sync": sync.stats(),
+        "verification_history": sync.verification_history(),
+    }
+
+
+@app.get("/sync/status")
+def sync_status():
+    return {"stats": sync.stats(), "queue": sync.queue()}
 
 @app.post("/cases")
 def create_case(req: CreateCaseRequest):
@@ -81,6 +119,79 @@ def history(case_id: str):
 @app.post("/cases/{case_id}/verify")
 def verify(case_id: str):
     return cases.verify(case_id)
+
+
+@app.get("/documents")
+def documents():
+    result = []
+    for document in sync.documents():
+        verification = sync.latest_verification(document["case_id"])
+        published = sync.latest_published(document["case_id"])
+        if verification:
+            status = verification["status"]
+        elif published:
+            status = "PUBLISHED"
+        else:
+            status = "PENDING"
+        result.append({
+            "id": document["case_id"],
+            "caseId": document["case_id"],
+            "category": document["category"],
+            "filename": document["filename"],
+            "status": status,
+            "hash": document["document_hash"],
+            "createdAt": document["created_at"],
+            "cordaTx": (
+                published["corda_tx_id"] if published else None
+            ),
+            "hederaSequence": (
+                str(published["hedera_sequence"])
+                if published and published.get("hedera_sequence") is not None
+                else None
+            ),
+            "hederaHash": verification["hedera_hash"] if verification else None,
+        })
+    return result
+
+
+@app.post("/documents")
+async def register_document(
+    file: UploadFile = File(...),
+    category: str = Form("MEDICAL_RECORD"),
+):
+    try:
+        if file.content_type not in (None, "application/pdf"):
+            raise ValueError("Le fichier doit etre un PDF.")
+        pdf_data = await file.read()
+        created = cases.register_pdf(pdf_data, file.filename or "document.pdf", category)
+        pipeline.poll_once()
+        row = sync.latest_published(created["case_id"])
+        return {
+            **created,
+            "document_hash": created["document_hash"],
+            "status": "PUBLISHED" if row else "PENDING",
+            "hedera_sequence": row["hedera_sequence"] if row else None,
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@app.post("/documents/{case_id}/verify")
+async def verify_document(case_id: str, file: UploadFile = File(...)):
+    pdf_data = await file.read()
+    if not pdf_data.startswith(b"%PDF-"):
+        raise HTTPException(status_code=422, detail="Le fichier doit etre un PDF valide.")
+    if len(pdf_data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Le PDF ne doit pas depasser 10 MB.")
+    result = cases.verify_pdf(case_id, pdf_data)
+    sync.register_verification(
+        case_id,
+        result["status"],
+        result["recomputed_hash"],
+        result["corda_hash"],
+        result["hedera_hash"],
+    )
+    return result
 
 
 @app.post("/pipeline/run")

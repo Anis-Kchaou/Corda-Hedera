@@ -1,0 +1,52 @@
+@import 'tailwindcss';
+
+.figma-custom-code-fragment {
+  display: contents;
+}
+
+.figma-bypass-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 2147483647;
+  transform: translateY(-150%);
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  padding: 8px 12px;
+  font:
+    600 14px/1.2 system-ui,
+    sans-serif;
+  text-decoration: none;
+}
+
+.figma-bypass-link:focus {
+  transform: translateY(0);
+}
+
+@layer base {
+  body {
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+  }
+  button,
+  a,
+  select,
+  label[for] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  select {
+    cursor: pointer;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #148b85;
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: #c9eae5;
+    color: #174745;
+  }
+}

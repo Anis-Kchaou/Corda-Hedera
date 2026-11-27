@@ -72,3 +72,18 @@ def test_duplicate_event_is_idempotent():
     pipe.handle_event(ev)
     pipe.handle_event(ev)
     assert len(sync.history(case["case_id"])) == 1
+
+
+def test_pdf_registration_and_verification():
+    store, corda, hedera, sync, pipe, svc = make_env()
+    pdf = b"%PDF-1.4\nmedproof-test-document\n%%EOF"
+    case = svc.register_pdf(pdf, "report.pdf", "Lab report")
+    pipe.poll_once()
+
+    assert case["case_id"].startswith("CASE-")
+    assert len(case["document_hash"]) == 64
+    assert store.load_pdf(case["case_id"]) == pdf
+    assert svc.verify_pdf(case["case_id"], pdf)["status"] == "VALID"
+
+    modified = pdf + b"\nmodified"
+    assert svc.verify_pdf(case["case_id"], modified)["status"] == "MODIFIED"
